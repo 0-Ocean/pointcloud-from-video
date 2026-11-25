@@ -33,5 +33,8 @@ git add .
 git commit -m "Mo ta thay doi"
 git push -u origin ten-nhanh-cua-ban
 
+#Nếu có nhánh rồi 
+git checkout ten_nhanh
+
 Bước 6 Kéo code về máy 
 git pull
