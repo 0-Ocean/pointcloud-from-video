@@ -1,0 +1,40 @@
+Bước 1: Cài Git (nếu chưa có)
+#Lấy link ở đây : https://git-scm.com/downloads
+#Ktra : git --version
+ Cấu hình tên và email một lần:
+git config --global user.name "Ten cua ban"
+git config --global user.email "email-github-cua-ban@example.com"
+
+Bước 2: Lấy link repo
+https://github.com/0-Ocean/pointcloud-from-video.git
+
+Bước 3: Clone về máy 
+
+Mở Terminal / PowerShell / CMD tại thư mục bạn muốn lưu dự án, ví dụ:
+
+cd D:\Projects
+git clone https://github.com/0-Ocean/pointcloud-from-video.git
+cd pointcloud-from-video
+
+Bước 4: Cài môi trường chạy
+Theo README, dự án cần Python 3.10, OpenCV, Open3D và COLMAP. Nên dùng môi trường ảo:
+
+python -m venv venv
+venv\Scripts\activate          # Windows
+# source venv/bin/activate     # Linux/Mac
+
+pip install -r requirements.txt
+
+Bước 5: Sửa và push lại 
+
+git checkout -b ten-nhanh-cua-ban     # tạo nhánh riêng
+# ... sửa code ...
+git add .
+git commit -m "Mo ta thay doi"
+git push -u origin ten-nhanh-cua-ban
+
+#Nếu có nhánh rồi 
+git checkout ten_nhanh
+
+Bước 6 Kéo code về máy 
+git pull
