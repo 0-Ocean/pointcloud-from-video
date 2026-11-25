@@ -3,10 +3,10 @@ import os
 from tqdm import tqdm
 
 # ── CONFIG ──────────────────────────────────────────────
-VIDEO_PATH   = "data/videos/video.mp4"      # Add your video recording in place of video.mp4
-OUTPUT_DIR   = "data/frames"
-FRAME_STEP   = 1         # extract every 5th frame
-MAX_FRAMES   = 300        # safety cap
+VIDEO_PATH   = "data/videos/test_table.MOV"  # Add your video recording in place of video.mp4
+OUTPUT_DIR   = "outputs/experiments/Table_test01/frames"
+FRAME_STEP   = 60         # extract every 5th frame
+MAX_FRAMES   = 200       # safety cap
 # ────────────────────────────────────────────────────────
 
 def extract_frames(video_path, output_dir, frame_step, max_frames):

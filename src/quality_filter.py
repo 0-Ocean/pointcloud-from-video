@@ -5,8 +5,8 @@ from tqdm import tqdm
 from skimage.metrics import structural_similarity as ssim
 
 # ── CONFIG ──────────────────────────────────────────────
-INPUT_DIR      = "data/frames"
-OUTPUT_DIR     = "data/filtered"
+INPUT_DIR      = "outputs/experiments/Table_test01/frames"
+OUTPUT_DIR     = "outputs/experiments/Table_test01/filtered"
 BLUR_THRESHOLD = 20.0   # lower = more blurry frames removed
 SSIM_THRESHOLD = 0.92    # higher = stricter duplicate removal
 # ────────────────────────────────────────────────────────

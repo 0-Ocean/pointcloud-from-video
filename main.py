@@ -42,7 +42,7 @@ elif choice == "5":
 elif choice in ["1","2","3","4"]:
     name, script = steps[int(choice)-1]
     print(f"\n Running: {name}")
-    subprocess.run([sys.executable, script])
+    sys.exit(subprocess.run([sys.executable, script]).returncode)
 
 else:
     print("Invalid choice.")

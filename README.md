@@ -77,6 +77,18 @@ pointcloud-from-video/
 
 ---
 
+## Repository layout conventions
+
+The local checkout at `C:\Users\84768\Documents\Point_cloud_project` is the project root shown as `pointcloud-from-video/` above. Run commands from this root; no additional nested project folder is needed.
+
+- Each of the six data/output directories contains a tracked `.gitkeep` so the layout survives a Git clone.
+- `.gitignore` excludes local datasets, extracted/filtered images, generated results, databases, virtual environments and caches. Source code and directory placeholders remain eligible for Git.
+- Put supplied still photos in `data/frames/` and start at quality filtering (option `2`); video extraction (option `1` or full pipeline option `0`) writes frames into that same directory.
+- Keep input files local. Add future implementation modules under `src/`, dependencies in `requirements.txt`, and exported point clouds/meshes under `outputs/meshes/`.
+- `AGENTS.md` records these conventions for future automated edits.
+
+---
+
 ## Setup
 
 > **Python 3.10 is required.** Open3D does NOT support Python 3.11, 3.12, or 3.13.
@@ -216,3 +228,56 @@ Interactive 3D Viewer  (Open3D — rotate, zoom, pan)
 ## License
 
 MIT License — free to use, modify, and distribute.
+
+## Recovering fusion and meshing
+
+After a fusion failure, retain the existing `outputs/dense` workspace and run only `stereo_fusion` to avoid repeating SfM and stereo. For this 16 GB RAM laptop, the recovery run uses `--StereoFusion.use_cache 1 --StereoFusion.cache_size 2 --StereoFusion.num_threads 1 --StereoFusion.max_image_size 1280`. Fusion restarts from its first image, using the previously computed depth and normal maps.
+
+`src/mesh_generator.py` reads `outputs/dense/fused.ply`. It retains the full dense cloud at `outputs/meshes/pointcloud.ply` and uses a reduced sample for Poisson meshing. Defaults are `--max-points 250000 --depth 8 --threads 4`; these trade surface detail for lower memory use. Exported meshes remain at `outputs/meshes/mesh.ply` and `mesh.obj`.
+
+## Safe model selection and dense recovery
+
+Reconstruction now chooses the usable sparse model with the most registered images instead of assuming folder `0`. Existing dense workspaces are protected from overwriting. A camera-model manifest records the workspace model and blocks fusion after model files change. Zero-point fusion output is reported as a failure.
+
+For the current recovered 324-image sparse model, prepare a separate workspace beneath `outputs/dense/`:
+
+```powershell
+python src/reconstruction.py --stage dense --sparse-model outputs/sparse/1 --dense-dir outputs/dense/recovery-324
+python src/mesh_generator.py --source outputs/dense/recovery-324/fused.ply
+```
+
+The dense stage reuses the sparse model and repeats undistortion, stereo and fusion in the NEW workspace. It does not rerun feature extraction, matching or the mapper. Settings use 1280-pixel images, 10 automatic source views, 2 GB caches and geometric filtering. Original dense files are retained. Do not run concurrent COLMAP jobs against one workspace.
+
+After an interrupted stereo stage in a verified new workspace, use `--stage stereo --dense-dir outputs/dense/recovery-324`. After an interrupted fusion stage, use `--stage fusion --dense-dir outputs/dense/recovery-324` if no `fused.ply` exists. Existing output files are protected; preserve and inspect a failed file before choosing another clean workspace or output recovery approach. Add `--dry-run` to validate and print commands without starting computation.
+
+## Inspect SIFT features, matching and sparse quality
+
+Run `python src/inspect_matches.py` from the project root to read the existing database and largest usable sparse model. No feature extraction, matching, model fitting or database edits are performed. Open `outputs/diagnostics/index.html` for the visual report. Plots, raw pair statistics (`pairs.csv`) and summary metrics (`summary.json`) are written beneath `outputs/diagnostics/` and remain ignored by Git.
+
+To include a chosen stored image pair:
+
+```powershell
+python src/inspect_matches.py --pair filtered_0000.jpg filtered_0001.jpg
+```
+
+Visualizations display at most 500 keypoints or 100 match lines per panel. Green indicates membership in the stored geometric-inlier set; orange indicates a tentative match absent from that set. This classification does not constitute ground-truth correctness. The high-count example is selected by inlier count, not by triangulation quality: near-identical views can match strongly while providing weak depth constraints.
+
+The report separates installed COLMAP defaults from the current reconstruction recipe; historical database-generation flags are not fully recorded in the SQLite database. Reprojection errors are the stored per-point sparse errors, not dense metric accuracy. GUI inspection instructions are included in the report.
+
+The diagnostics report includes **Tiếng Việt / English** controls. Vietnamese is the default; the selected language is remembered when browser storage is available. Text, metric labels, captions, image descriptions and COLMAP GUI instructions switch together. Controls are embedded from `src/report_language.js`, so the report works offline when opened directly from disk and remains bilingual after regeneration. Existing image annotations stay as generated; translated captions explain the plots.
+
+Báo cáo chẩn đoán hỗ trợ **Tiếng Việt / English**, mặc định tiếng Việt và ghi nhớ ngôn ngữ đã chọn khi trình duyệt cho phép. Mở `outputs/diagnostics/index.html` rồi dùng nút ngôn ngữ ở đầu trang.
+
+## Isolated video preparation experiment
+
+Run `python src/run_video_test.py --video data/videos/Family.mp4` from the project root. Each run creates a new timestamped folder under `outputs/experiments/Family/` containing `frames/`, `filtered/`, `frame_scores.csv`, contact sheets, settings, summary and a processing log. Existing Ballroom inputs and reconstruction outputs are preserved. The runner calls the existing extraction and filtering functions and records their decisions. This explicit experimental folder keeps all generated trial artifacts together.
+
+The default maximum of 300 samples is distributed across the video by computing a frame step from its total frame count. Override `--max-frames`, `--blur-threshold` and `--ssim-threshold` for separate trials. Original-resolution JPEG frames are retained. No reconstruction is launched by this command. Pillow used for contact sheets is supplied by the current Open3D/Matplotlib dependency environment.
+
+## Current table MOV preparation defaults
+
+`python src/frame_extractor.py --dry-run` validates `data/videos/table.MOV` and decodes its first frame without writing files. The extractor now defaults to step 60, maximum 200 images, JPEG quality 95 and `outputs/experiments/table_test_01/frames`. Run without `--dry-run` to extract. The inspected video reports 59.9727 fps and 5933 frames, so about 99 images are expected. Sampling is by frame index, approximately one image/second, not exact timestamps for variable-frame-rate media.
+
+`python src/quality_filter.py` currently reads that experimental frames directory and writes `outputs/experiments/table_test_01/filtered`. The reconstruction script still reads `data/filtered`; therefore run these preparation scripts separately rather than menu 0 for this experiment. Choose a fresh directory for every further experiment and update both filtering paths accordingly. The extractor refuses nonempty output directories, checks image writes, fails with a nonzero exit code on errors, and records a frame CSV and extraction summary. The original four-argument extraction function remains compatible with `run_video_test.py`.
+
+Override configuration without editing code, for example `python src/frame_extractor.py --video data/videos/table.MOV --output outputs/experiments/table_test_02/frames --frame-step 60 --max-frames 200`. Outputs from interrupted extraction are retained for inspection; use a new output path for retrying. Existing editor tabs may contain unsaved older code; reload the saved file before editing again.

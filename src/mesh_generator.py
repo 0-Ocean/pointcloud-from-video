@@ -1,103 +1,81 @@
-import open3d as o3d
+"""Build a bounded-memory mesh from the completed COLMAP dense cloud."""
+
+import argparse
+import math
+from pathlib import Path
+import shutil
+
 import numpy as np
-import struct
-import os
-
-# ── CONFIG ──────────────────────────────────────────────
-SPARSE_DIR  = "outputs/sparse/0"
-MESH_DIR    = "outputs/meshes"
-PLY_OUT     = "outputs/meshes/pointcloud.ply"
-MESH_OUT    = "outputs/meshes/mesh.ply"
-MESH_OBJ    = "outputs/meshes/mesh.obj"
-# ────────────────────────────────────────────────────────
-
-def read_points3d_binary(path):
-    """Read COLMAP points3D.bin and return Nx3 points and Nx3 colors."""
-    points = []
-    colors = []
-
-    with open(path, "rb") as f:
-        num_points = struct.unpack("<Q", f.read(8))[0]
-        print(f"  Reading {num_points} 3D points...")
-
-        for _ in range(num_points):
-            point_id = struct.unpack("<Q", f.read(8))[0]
-            x, y, z  = struct.unpack("<ddd", f.read(24))
-            r, g, b  = struct.unpack("<BBB", f.read(3))
-            error    = struct.unpack("<d", f.read(8))[0]
-
-            # track array
-            track_length = struct.unpack("<Q", f.read(8))[0]
-            f.read(8 * track_length)  # skip track entries
-
-            points.append([x, y, z])
-            colors.append([r / 255.0, g / 255.0, b / 255.0])
-
-    return np.array(points), np.array(colors)
+import open3d as o3d
 
 
 def main():
-    os.makedirs(MESH_DIR, exist_ok=True)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source', default='outputs/dense/fused.ply')
+    parser.add_argument('--max-points', type=int, default=250000,
+                        help='Maximum points used for meshing; the full cloud is retained separately.')
+    parser.add_argument('--depth', type=int, default=8)
+    parser.add_argument('--threads', type=int, default=4)
+    args = parser.parse_args()
+    if args.max_points < 100 or not 4 <= args.depth <= 12 or args.threads < 1:
+        parser.error('Use max-points >= 100, depth 4..12, and threads >= 1.')
 
-    points3d_path = os.path.join(SPARSE_DIR, "points3D.bin")
+    source = Path(args.source)
+    if not source.is_file():
+        raise SystemExit(f'Dense cloud not found: {source}. Complete Stereo Fusion first.')
+    output = Path('outputs/meshes')
+    output.mkdir(parents=True, exist_ok=True)
+    print(f'Source: {source}', flush=True)
+    pcd = o3d.io.read_point_cloud(str(source))
+    if len(pcd.points) < 100:
+        raise SystemExit('Dense cloud has fewer than 100 readable points.')
+    print(f'Full dense cloud: {len(pcd.points):,} points', flush=True)
 
-    if not os.path.exists(points3d_path):
-        print(f"ERROR: {points3d_path} not found.")
-        print("Make sure sparse reconstruction completed successfully.")
-        return
+    cloud_output = output / 'pointcloud.ply'
+    if source.resolve() != cloud_output.resolve():
+        shutil.copyfile(source, cloud_output)
+    print(f'Full cloud retained: {cloud_output}', flush=True)
 
-    print("\n Mesh Generator")
-    print(f"  Source: {points3d_path}\n")
-
-    # ── Load points ──
-    points, colors = read_points3d_binary(points3d_path)
-    print(f"  Loaded : {len(points)} points")
-
-    # ── Create Open3D point cloud ──
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.colors = o3d.utility.Vector3dVector(colors)
-
-    # ── Remove outliers ──
-    print("\n  Removing outliers...")
+    # Use relative scene size rather than assuming metric SfM coordinates.
+    extent = float(np.max(pcd.get_axis_aligned_bounding_box().get_extent()))
+    if not np.isfinite(extent) or extent <= 0:
+        raise SystemExit('Invalid cloud bounding box.')
+    if len(pcd.points) > args.max_points:
+        sampled = pcd.voxel_down_sample(extent / 400.0)
+        del pcd
+        pcd = sampled
+        if len(pcd.points) > args.max_points:
+            sampled = pcd.uniform_down_sample(math.ceil(len(pcd.points) / args.max_points))
+            del pcd
+            pcd = sampled
+    pcd = pcd.remove_non_finite_points()
+    print(f'Meshing sample: {len(pcd.points):,} points', flush=True)
     pcd, _ = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
-    print(f"  After cleanup: {len(pcd.points)} points")
+    if len(pcd.points) < 100:
+        raise SystemExit('Too few points remain after outlier filtering.')
 
-    # ── Save point cloud ──
-    o3d.io.write_point_cloud(PLY_OUT, pcd)
-    print(f"\n  Point cloud saved: {PLY_OUT}")
-
-    # ── Estimate normals ──
-    print("\n  Estimating normals...")
-    pcd.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30)
-    )
-    pcd.orient_normals_consistent_tangent_plane(100)
-
-    # ── Poisson mesh reconstruction ──
-    print("  Running Poisson reconstruction...")
+    if not pcd.has_normals():
+        print('Estimating and orienting normals...', flush=True)
+        pcd.estimate_normals(o3d.geometry.KDTreeSearchParamKNN(knn=30))
+        pcd.orient_normals_consistent_tangent_plane(30)
+    else:
+        print('Using normals supplied by COLMAP.', flush=True)
+    pcd.normalize_normals()
+    print(f'Poisson reconstruction: depth={args.depth}, threads={args.threads}', flush=True)
     mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-        pcd, depth=9
-    )
-
-    # ── Remove low density vertices ──
-    print("  Cleaning mesh...")
+        pcd, depth=args.depth, n_threads=args.threads)
     densities = np.asarray(densities)
-    keep_mask = densities > np.percentile(densities, 10)
-    mesh.remove_vertices_by_mask(~keep_mask)
-
+    if not len(mesh.vertices) or not len(densities):
+        raise SystemExit('Poisson reconstruction returned an empty mesh.')
+    mesh.remove_vertices_by_mask(densities < np.quantile(densities, 0.10))
     mesh.compute_vertex_normals()
-
-    # ── Save mesh ──
-    o3d.io.write_triangle_mesh(MESH_OUT, mesh)
-    o3d.io.write_triangle_mesh(MESH_OBJ, mesh)
-
-    print(f"\n  Mesh saved : {MESH_OUT}")
-    print(f"  OBJ saved  : {MESH_OBJ}")
-    print(f"  Vertices   : {len(mesh.vertices)}")
-    print(f"  Triangles  : {len(mesh.triangles)}")
-    print(f"\n  Next step  : run visualizer.py")
+    for name in ('mesh.ply', 'mesh.obj'):
+        target = output / name
+        if not o3d.io.write_triangle_mesh(str(target), mesh):
+            raise SystemExit(f'Could not write mesh: {target}')
+        print(f'Saved: {target}', flush=True)
+    print(f'Vertices: {len(mesh.vertices):,}; triangles: {len(mesh.triangles):,}', flush=True)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
