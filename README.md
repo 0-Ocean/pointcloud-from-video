@@ -1,5 +1,47 @@
 # Vision-Based 3D Digital Pointcloud Generator
 
+## Room cloud alignment (step 1.5)
+
+`src/pointcloud_processor.py` uses Open3D RANSAC to find planes, selects a
+horizontal floor near the bottom of a room cloud, refines the vertical axis,
+and places the detected floor centre at the origin. Optional `--align-walls`
+aligns the strongest vertical plane normal with X. Other walls are not forced
+to be perpendicular. The saved cloud retains all finite input points, colours
+and normals. Sampling is used only for plane detection.
+
+Run from the repository root, supplying the exact sparse model used to build
+the dense workspace (not necessarily `sparse/0`):
+
+```powershell
+python src/pointcloud_processor.py --source outputs/experiments/Table_test01/dense/fused.ply --sparse-model outputs/experiments/Table_test01/sparse/0 --align-walls
+```
+
+Alternatively supply a verified up vector in the original cloud coordinates
+with `--up=0,0,1` instead of `--sparse-model`. Camera-based up estimation assumes
+little camera roll and rejects poorly constrained estimates. It is not an IMU
+gravity measurement. A cropped object or tabletop can be mistaken for a floor;
+inspect the result before measuring. No wall detection is required unless
+`--align-walls` is requested.
+
+Defaults write `outputs/meshes/room_aligned.ply` and
+`outputs/meshes/room_aligned_alignment.json`. Existing outputs are protected.
+The JSON includes forward/inverse rigid transforms, source paths, plane support
+and floor residuals. The transform convention is `p_aligned = R @ p_source + t`
+for column vectors. Camera poses are not modified. Keep this transform when
+combining aligned geometry with labels or cameras in the original frame.
+
+**Coordinates remain in COLMAP units, not metres.** The default RANSAC distance
+threshold is 0.003 times the robust scene extent; override with
+`--distance-threshold` in source units. Add `--dry-run` to fit and print the
+report without saving. To continue to metric scaling, use a real measured room
+dimension, for example:
+
+```powershell
+python "src/Metric scale.py" outputs/meshes/room_aligned.ply --wall-to-wall x=4.85
+```
+
+This module is also available through step 5 of the `main.py` menu.
+
 > Record a 360° video of any object. Get a fully textured 3D point cloud and mesh back.
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue?style=flat-square&logo=python)
@@ -158,12 +200,44 @@ python main.py
 
 | Option | Action |
 |--------|--------|
-| `0` | Run full pipeline end to end |
+| `0` | Run steps 1-7, stopping on failure; prompts for alignment and a real scale reference |
 | `1` | Frame extraction only |
 | `2` | Quality filtering only |
-| `3` | COLMAP reconstruction only |
-| `4` | Mesh generation only |
-| `5` | Launch 3D visualizer |
+| `3` | COLMAP: choose full, dense, stereo or fusion |
+| `4` | Inspect camera-based up direction |
+| `5` | RANSAC floor detection and cloud alignment |
+| `6` | Convert aligned cloud to metres using an entered measurement or known scale |
+| `7` | Mesh a chosen metric, aligned or raw dense cloud |
+| `8` | Launch visualizer for the point cloud/mesh exported by step 7 |
+| `q` | Exit menu |
+
+The menu returns after each individual step. Run `python main.py --step 5` to
+execute one step and exit, or add `--dry-run` to print commands without running
+the modules. Configuration prompts still appear in dry-run mode.
+
+The current preparation and reconstruction modules use
+`outputs/experiments/Table_test01/`. The menu checks preparation paths for
+consistency. Steps 1-2 refuse to overwrite nonempty frame directories. Run only
+the next needed step when earlier results already exist.
+
+Step 3 lets you choose a dense workspace and keeps that selection for later
+steps in the same menu session. In a new session, supply it explicitly:
+
+```powershell
+python main.py --dense-dir outputs/dense/recovery-324
+```
+
+This changes the dense workspace only; it does not change the source video,
+filtered images, database or sparse directory of the current experiment.
+Steps 4-5 use the camera model in `<dense workspace>/sparse` rather than assuming
+the mapper selected `sparse/0`. Step 5 recomputes camera-based up unless you
+enter a manual up vector. Step 4 is an inspection step, not a required saved
+artifact. Room alignment and wall-based scale estimation require suitable room
+coverage; for an object experiment, step 7 can use the raw COLMAP cloud.
+
+Step 6 refuses to overwrite its metric cloud/report. Mesh generation retains
+the existing module's fixed output paths in `outputs/meshes/`. LAS/IFC export
+and YOLO/LLM modules are not implemented or included in this menu.
 
 ---
 
@@ -264,7 +338,7 @@ Visualizations display at most 500 keypoints or 100 match lines per panel. Green
 
 The report separates installed COLMAP defaults from the current reconstruction recipe; historical database-generation flags are not fully recorded in the SQLite database. Reprojection errors are the stored per-point sparse errors, not dense metric accuracy. GUI inspection instructions are included in the report.
 
-The diagnostics report includes **Tiếng Việt / English** controls. Vietnamese is the default; the selected language is remembered when browser storage is available. Text, metric labels, captions, image descriptions and COLMAP GUI instructions switch together. Controls are embedded from `src/report_language.js`, so the report works offline when opened directly from disk and remains bilingual after regeneration. Existing image annotations stay as generated; translated captions explain the plots.
+The diagnostics report includes **English / Vietnamese** controls. English is the default; the selected language is remembered when browser storage is available. Text, metric labels, captions, image descriptions and COLMAP GUI instructions switch together. Controls are embedded from `src/report_language.js`, so the report works offline when opened directly from disk and remains bilingual after regeneration. Existing image annotations stay as generated; translated captions explain the plots.
 
 Báo cáo chẩn đoán hỗ trợ **Tiếng Việt / English**, mặc định tiếng Việt và ghi nhớ ngôn ngữ đã chọn khi trình duyệt cho phép. Mở `outputs/diagnostics/index.html` rồi dùng nút ngôn ngữ ở đầu trang.
 
@@ -281,3 +355,11 @@ The default maximum of 300 samples is distributed across the video by computing 
 `python src/quality_filter.py` currently reads that experimental frames directory and writes `outputs/experiments/table_test_01/filtered`. The reconstruction script still reads `data/filtered`; therefore run these preparation scripts separately rather than menu 0 for this experiment. Choose a fresh directory for every further experiment and update both filtering paths accordingly. The extractor refuses nonempty output directories, checks image writes, fails with a nonzero exit code on errors, and records a frame CSV and extraction summary. The original four-argument extraction function remains compatible with `run_video_test.py`.
 
 Override configuration without editing code, for example `python src/frame_extractor.py --video data/videos/table.MOV --output outputs/experiments/table_test_02/frames --frame-step 60 --max-frames 200`. Outputs from interrupted extraction are retained for inspection; use a new output path for retrying. Existing editor tabs may contain unsaved older code; reload the saved file before editing again.
+
+## Source language
+
+Pipeline menu prompts, CLI help, errors, comments and docstrings use English.
+Change markers are `UPDATED` and `NEW`. Existing metric-scale JSON field names
+are retained for compatibility. Diagnostics HTML is generated in English; the
+optional Vietnamese translation resources and saved language preference remain
+available. Existing generated reports are not rewritten by source edits.

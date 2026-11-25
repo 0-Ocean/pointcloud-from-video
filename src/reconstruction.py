@@ -118,7 +118,9 @@ def main():
                 sparse_dir.mkdir(parents=True, exist_ok=True)
             run(['colmap', 'feature_extractor', '--database_path', database, '--image_path', images,
                  '--ImageReader.single_camera', '1', '--FeatureExtraction.max_image_size', '1920'], 'Feature extraction', args.dry_run)
-            run(['colmap', 'sequential_matcher', '--database_path', database], 'Feature matching', args.dry_run)
+            # UPDATED (v3): Match every image pair, including the start and end of the loop.
+            # Valid correspondences help the mapper reduce reconstruction drift.
+            run(['colmap', 'exhaustive_matcher', '--database_path', database], 'Feature matching', args.dry_run)
             run(['colmap', 'mapper', '--database_path', database, '--image_path', images,
                  '--output_path', sparse_dir], 'Sparse reconstruction', args.dry_run)
         if args.stage == 'full' and args.dry_run and not args.sparse_model:
