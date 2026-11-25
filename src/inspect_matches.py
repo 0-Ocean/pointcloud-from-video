@@ -144,7 +144,7 @@ def main():
         cv2.rectangle(canvas,(0,0),(image.shape[1],48),(25,25,25),-1)
         cv2.putText(canvas,f'{images[ident]} | {len(keypoints):,} SIFT keypoints; up to 500 shown',(15,33),cv2.FONT_HERSHEY_SIMPLEX,.85,(255,255,255),2)
         filename=f'sift_{ident:04d}.png';cv2.imwrite(str(output/filename),canvas)
-        figures.insert(0,(filename,f'SIFT: {images[ident]} — {len(keypoints):,} keypoints, hiển thị tối đa 500 vòng tròn/hướng.'))
+        figures.insert(0,(filename,f'SIFT: {images[ident]} — {len(keypoints):,} keypoints, up to 500 circles/orientations shown.'))
 
     model = Path(args.model) if args.model else choose_model('outputs/sparse')
     errors, tracks = point_metrics(model/'points3D.bin')
@@ -176,7 +176,7 @@ def main():
     axes[2].axvline(np.mean(errors),color='#d85e32',label=f'Mean {np.mean(errors):.3f} px')
     axes[2].set(xlabel='Stored per-point mean error (px)',ylabel='Sparse 3D points',title='Sparse reprojection error');axes[2].legend()
     fig.tight_layout();fig.savefig(output/'quality_metrics.png',dpi=170);plt.close(fig)
-    figures.append(('quality_metrics.png','Các chỉ số của database và sparse model đang đọc.'))
+    figures.append(('quality_metrics.png','Metrics from the database and sparse model being inspected. From left to right: SIFT keypoints by image; geometric match retention; reprojection error distribution of sparse 3D points.'))
     ids=list(images); positions={ident:i for i,ident in enumerate(ids)}
     heat=np.full((len(ids),len(ids)),np.nan)
     for row in rows:
@@ -186,46 +186,46 @@ def main():
     ax.set(title='Stored verified-match graph',xlabel='Image index',ylabel='Image index')
     fig.colorbar(im,ax=ax,label='log10(1 + geometric inliers)')
     fig.tight_layout();fig.savefig(output/'match_graph.png',dpi=170);plt.close(fig)
-    figures.append(('match_graph.png','Đồ thị matching: trắng = không có bản ghi; màu thể hiện số inlier trên thang log.'))
+    figures.append(('match_graph.png','Match graph: both axes are image indices; white = no stored record; color represents log10(1 + geometric inlier count).'))
 
     params=[
-        ('Camera model / single_camera','SIMPLE_RADIAL / 1','Recipe hiện tại','Chỉ chia sẻ camera khi cùng ống kính, zoom và cấu hình ảnh.'),
-        ('FeatureExtraction.max_image_size','1920','Recipe hiện tại','Giảm kích thước giúp nhanh/nhẹ hơn, có thể mất đặc trưng nhỏ.'),
-        ('SiftExtraction.max_num_features','8192','Mặc định bản cài','Mục tiêu số đặc trưng; tăng làm matching và bộ nhớ nặng hơn.'),
-        ('SiftExtraction.peak_threshold','0.00667','Mặc định bản cài','Hạ ngưỡng thường tăng điểm yếu và cả nhiễu.'),
-        ('SiftMatching.max_ratio / cross_check','0.8 / 1','Mặc định bản cài','Ratio test loại mô tả mơ hồ; cross-check yêu cầu ghép hai chiều.'),
-        ('SequentialMatching.overlap','10','Mặc định bản cài','Phạm vi ghép ảnh theo chuỗi; tăng thêm kết nối và chi phí.'),
-        ('TwoViewGeometry.max_error','4 px','Mặc định bản cài','Ngưỡng kiểm tra hình học 2 ảnh, không phải sai số 3D theo mét.'),
-        ('TwoViewGeometry.min_num_inliers','15','Mặc định bản cài','Số inlier tối thiểu; đạt ngưỡng chưa chứng minh cặp đúng.'),
-        ('Mapper.filter_max_reproj_error','4 px','Mặc định bản cài','Ngưỡng lọc điểm sparse theo sai số chiếu lại.'),
-        ('Mapper.filter_min_tri_angle','1.5 degrees','Mặc định bản cài','Góc tam giác hóa nhỏ khiến ước lượng độ sâu thiếu ổn định.'),
-        ('Mapper.ba_refine_focal_length / principal_point / extra_params','1 / 0 / 1','Mặc định bản cài','Các nhóm nội tham được tối ưu trong bundle adjustment.'),
-        ('Dense max_image_size / source views','1280 / 10','Recipe phục hồi','Cân bằng chi tiết, tốc độ và VRAM.'),
-        ('PatchMatchStereo.geom_consistency / filter','true / true','Recipe phục hồi','Kiểm tra độ sâu giữa nhiều góc nhìn và lọc kết quả.'),
-        ('Fusion use_cache / cache_size / threads','1 / 2 GB / 1','Recipe phục hồi','Giảm bộ nhớ và số luồng; cache không phải trần tổng RAM.'),
-        ('Poisson depth / mesh max-points','8 / 250000','Recipe mesh hiện tại','Ảnh hưởng chi tiết và bộ nhớ mesh, không thay đổi SIFT/matching.')]
-    items=[('Ảnh trong database',len(images)),('Tổng điểm SIFT',summary['keypoints_total']),('Bản ghi cặp ảnh',len(rows)),
-           ('Cặp có inlier',len(positive)),('Tentative matches',raw_total),('Geometric matches',kept_total),
-           ('Tỷ lệ số lượng được giữ',f'{kept_total/raw_total:.2%}'),('Ảnh đăng ký trong model',registered),
-           ('Điểm 3D sparse',len(errors)),('Mean reprojection error',f'{np.mean(errors):.3f} px'),
+        ('Camera model / single_camera','SIMPLE_RADIAL / 1','Current recipe','Share camera parameters only when the lens, zoom and image configuration are the same.'),
+        ('FeatureExtraction.max_image_size','1920','Current recipe','Smaller images reduce processing time and memory use but may lose small features.'),
+        ('SiftExtraction.max_num_features','8192','Installed default','Target feature count; increasing it raises matching cost and memory use.'),
+        ('SiftExtraction.peak_threshold','0.00667','Installed default','Lowering the threshold usually adds weaker keypoints and more noise.'),
+        ('SiftMatching.max_ratio / cross_check','0.8 / 1','Installed default','The ratio test rejects ambiguous descriptors; cross-check requires mutual matches.'),
+        ('SequentialMatching.overlap','10','Installed default','Sequential image matching range; increasing it adds connections and processing cost.'),
+        ('TwoViewGeometry.max_error','4 px','Installed default','Two-view geometric verification threshold, not a 3D error measured in metres.'),
+        ('TwoViewGeometry.min_num_inliers','15','Installed default','Minimum geometric inlier count; reaching it does not establish that a pair is correct.'),
+        ('Mapper.filter_max_reproj_error','4 px','Installed default','Threshold for filtering sparse points by reprojection error.'),
+        ('Mapper.filter_min_tri_angle','1.5 degrees','Installed default','Small triangulation angles make depth estimates less stable.'),
+        ('Mapper.ba_refine_focal_length / principal_point / extra_params','1 / 0 / 1','Installed default','Groups of camera intrinsic parameters optimized during bundle adjustment.'),
+        ('Dense max_image_size / source views','1280 / 10','Recovery recipe','Balances detail, processing speed and GPU memory (VRAM).'),
+        ('PatchMatchStereo.geom_consistency / filter','true / true','Recovery recipe','Checks depth consistency across multiple views and filters the results.'),
+        ('Fusion use_cache / cache_size / threads','1 / 2 GB / 1','Recovery recipe','Reduces memory use and thread count; cache size is not a cap on total RAM use.'),
+        ('Poisson depth / mesh max-points','8 / 250000','Current mesh recipe','Affects mesh detail and memory use; does not change SIFT extraction or matching.')]
+    items=[('Images in database',len(images)),('Total SIFT keypoints',summary['keypoints_total']),('Image-pair records',len(rows)),
+           ('Pairs with geometric inliers',len(positive)),('Tentative matches',raw_total),('Geometrically verified matches',kept_total),
+           ('Match count retention ratio',f'{kept_total/raw_total:.2%}'),('Registered model images',registered),
+           ('Sparse 3D points',len(errors)),('Mean reprojection error',f'{np.mean(errors):.3f} px'),
            ('Median / P95 reprojection error',f'{np.median(errors):.3f} / {np.percentile(errors,95):.3f} px'),
-           ('Mean track length',f'{np.mean(tracks):.2f} ảnh/điểm')]
+           ('Mean track length',f'{np.mean(tracks):.2f} images/point')]
     cards=''.join(f'<tr><td>{html.escape(str(k))}</td><td>{html.escape(str(v))}</td></tr>' for k,v in items)
     gallery=''.join(f'<figure><figcaption>{html.escape(caption)}</figcaption><a href="{name}" target="_blank"><img src="{name}" loading="lazy"></a></figure>' for name,caption in figures)
     table=''.join('<tr>'+''.join(f'<td>{html.escape(cell)}</td>' for cell in row)+'</tr>' for row in params)
-    document='''<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ballroom — SIFT và matching</title>
+    document='''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ballroom — SIFT and feature matching</title>
 <style>body{font:16px/1.65 system-ui,sans-serif;background:#f3f5f7;color:#172637;margin:0}main{max-width:1200px;margin:auto;padding:32px}h1,h2{line-height:1.25}table{border-collapse:collapse;width:100%;background:white;margin:24px 0}td,th{padding:12px;border-bottom:1px solid #dce2e8;text-align:left;vertical-align:top}figure{margin:28px 0;background:white;padding:16px;border-radius:10px}img{width:100%;height:auto}figcaption{margin-bottom:12px;font-weight:600}.note{background:#fff2d9;padding:18px;border-left:4px solid #bc7c19}code{background:#e5ebf0;padding:2px 6px}a{color:#075e94}</style><main>
-<h1>Ballroom: điểm SIFT, matching và chất lượng sparse</h1>
-<p>Dữ liệu đọc trực tiếp từ <code>outputs/database.db</code> và sparse model được chọn. Không chạy lại SIFT, matching hoặc sửa database.</p>
-<div class="note"><strong>Cách đọc:</strong> vòng tròn/hướng biểu diễn keypoint SIFT. Đường nối biểu diễn cặp điểm tương ứng. Xanh = được giữ trong tập kiểm tra hình học; cam = không xuất hiện trong tập đó. Mỗi ảnh matching chỉ vẽ tối đa 100 đường để dễ đọc; mỗi ảnh keypoint vẽ tối đa 500 điểm. Bấm ảnh để mở kích thước đầy đủ.</div>
-<h2>Chỉ số đo từ dự án</h2><table>'''+cards+'''</table>
-<p><strong>Không diễn giải tỷ lệ inlier thành “độ chính xác matching”.</strong> Đây là kiểm tra nhất quán theo mô hình hình học. Hoa văn lặp lại vẫn có thể tạo ghép nhầm nhất quán. Sai số chiếu lại đo mức phù hợp giữa điểm 3D và quan sát ảnh trong sparse model; sai số nhỏ không chứng minh kích thước phòng hoặc dense cloud đúng theo centimet. Các điểm bị loại không nằm trong phân bố reprojection error này.</p>
-<h2>Ảnh SIFT và matching thật</h2>'''+gallery+'''
-<h2>Các tham số quan trọng</h2><p>“Mặc định bản cài” là kết quả đọc trợ giúp COLMAP 4.2.1, không phải lịch sử chắc chắn của lần tạo database. “Recipe” là các cờ đang đặt trong mã dự án; sửa cờ không thay đổi dữ liệu đã tính trước đó.</p>
-<table><thead><tr><th>Tham số</th><th>Giá trị</th><th>Nguồn</th><th>Tác động</th></tr></thead><tbody>'''+table+'''</tbody></table>
-<h2>Xem trực tiếp trong COLMAP GUI</h2><ol><li>Chạy <code>C:\\colmap\\COLMAP.bat gui</code>.</li><li>Trong <code>File &gt; New project</code>, trỏ database tới <code>outputs/database.db</code> hiện có và image folder tới <code>data/filtered</code>. Không chạy lại Extract/Match.</li><li>Vào <code>Processing &gt; Manage database</code>; chọn ảnh rồi dùng <code>Show image</code> và <code>Overlapping images</code> để xem điểm và matches. Không sửa dữ liệu hoặc bấm Save nếu chỉ xem.</li></ol>
-<p>Nguồn: <a href="https://colmap.github.io/database.html">COLMAP database format</a> · <a href="https://colmap.github.io/tutorial.html#database-management">GUI/database tutorial</a> · <a href="https://colmap.github.io/faq.html">Parameter guidance</a>.</p>
-<p>Tệp kèm: <a href="summary.json">summary.json</a> · <a href="pairs.csv">pairs.csv</a>. Báo cáo là chẩn đoán nội tại, chưa có ground-truth correspondence hoặc đánh giá metric 3D.</p></main></html>'''
+<h1>Ballroom: SIFT features, matching and sparse reconstruction quality</h1>
+<p>Data is read directly from <code>outputs/database.db</code> and the selected sparse model. SIFT extraction and matching are not rerun, and the database is not modified.</p>
+<div class="note"><strong>How to read:</strong> circles and orientations represent SIFT keypoints. Lines connect corresponding features. Green = retained in the geometric verification set; orange = absent from that set. Each matching image shows up to 100 lines, and each keypoint image shows up to 500 points. Click an image to open it at full size.</div>
+<h2>Measured project metrics</h2><table>'''+cards+'''</table>
+<p><strong>Do not interpret the inlier ratio as “matching accuracy”.</strong> It measures consistency with a geometric model. Repeated patterns can still produce geometrically consistent false matches. Reprojection error measures agreement between 3D points and image observations in the sparse model; a small error does not establish centimetre-level accuracy of room dimensions or the dense cloud. Rejected points are excluded from this reprojection error distribution.</p>
+<h2>Actual SIFT and matching visualizations</h2>'''+gallery+'''
+<h2>Key parameters</h2><p>“Installed default” comes from COLMAP 4.2.1 help output; it is not a confirmed record of the settings used to create the database. “Recipe” refers to flags currently set in the project code; changing them does not alter previously computed data.</p>
+<table><thead><tr><th>Parameter</th><th>Value</th><th>Source</th><th>Effect</th></tr></thead><tbody>'''+table+'''</tbody></table>
+<h2>Inspect directly in the COLMAP GUI</h2><ol><li>Run <code>C:\\colmap\\COLMAP.bat gui</code>.</li><li>Under <code>File &gt; New project</code>, set the database to the existing <code>outputs/database.db</code> and the image folder to <code>data/filtered</code>. Do not rerun Extract/Match.</li><li>Open <code>Processing &gt; Manage database</code>, select an image, then use <code>Show image</code> and <code>Overlapping images</code> to inspect keypoints and matches. Do not edit data or click Save when only inspecting.</li></ol>
+<p>Sources: <a href="https://colmap.github.io/database.html">COLMAP database format</a> · <a href="https://colmap.github.io/tutorial.html#database-management">GUI/database tutorial</a> · <a href="https://colmap.github.io/faq.html">Parameter guidance</a>.</p>
+<p>Files: <a href="summary.json">summary.json</a> · <a href="pairs.csv">pairs.csv</a>. This report provides internal diagnostics; no ground-truth correspondences or metric 3D accuracy evaluation are available.</p></main></html>'''
     # Embed the language controls so the report also works directly from disk.
     language_script = Path(__file__).with_name('report_language.js').read_text(encoding='utf-8')
     document = document.replace('</main>', '</main>\n<script id="report-language-script">\n' + language_script + '\n</script>', 1)

@@ -63,6 +63,16 @@
 
   function translate(source) {
     if (translations.has(source)) return translations.get(source);
+    for (const pair of translations.values()) {
+      if (pair.includes(source)) return pair;
+    }
+    const englishTrack = source.match(/^([\d.]+) images\/point$/);
+    if (englishTrack) return [`${englishTrack[1]} \u1ea3nh/\u0111i\u1ec3m`, source];
+    const englishSift = source.match(/^SIFT: (.+) \u2014 ([\d,]+) keypoints, up to 500 circles\/orientations shown\.$/);
+    if (englishSift) return [
+      `SIFT: ${englishSift[1]} \u2014 ${englishSift[2]} \u0111i\u1ec3m \u0111\u1eb7c tr\u01b0ng, hi\u1ec3n th\u1ecb t\u1ed1i \u0111a 500 v\u00f2ng tr\u00f2n v\u00e0 h\u01b0\u1edbng.`,
+      source
+    ];
     let match = source.match(/^([\d.]+) ảnh\/điểm$/);
     if (match) return [source, `${match[1]} images/point`];
     match = source.match(/^SIFT: (.+) — ([\d,]+) keypoints, hiển thị tối đa 500 vòng tròn\/hướng\.$/);
@@ -108,7 +118,7 @@
   const controls = document.createElement('nav');
   controls.className = 'report-languages';
   const label = document.createElement('span');
-  label.textContent = 'Ngôn ngữ / Language';
+  label.textContent = 'Language';
   controls.append(label);
   const buttons = ['vi', 'en'].map(language => {
     const button = document.createElement('button');
@@ -153,9 +163,10 @@
     try { localStorage.setItem(storageKey, language); } catch (_) { /* Storage may be blocked for local files. */ }
   }
 
-  let initialLanguage = 'vi';
+  let initialLanguage = 'en';
   try {
-    if (localStorage.getItem(storageKey) === 'en') initialLanguage = 'en';
-  } catch (_) { /* Vietnamese remains the offline default. */ }
+    const savedLanguage = localStorage.getItem(storageKey);
+    if (savedLanguage === 'vi' || savedLanguage === 'en') initialLanguage = savedLanguage;
+  } catch (_) { /* English remains the offline default. */ }
   setLanguage(initialLanguage);
 })();
