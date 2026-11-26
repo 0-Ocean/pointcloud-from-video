@@ -14,7 +14,14 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
-from reconstruction import choose_model
+if __package__:
+    from .project_config import DATABASE, FILTERED, DIAGNOSTICS, SPARSE, EXPERIMENT, resolve_path
+else:
+    from project_config import DATABASE, FILTERED, DIAGNOSTICS, SPARSE, EXPERIMENT, resolve_path
+if __package__:
+    from .reconstruction import choose_model
+else:
+    from reconstruction import choose_model
 
 PAIR_BASE = 2147483647
 
@@ -70,12 +77,19 @@ def point_metrics(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--database', default='outputs/database.db')
-    parser.add_argument('--image-dir', default='data/filtered')
-    parser.add_argument('--output-dir', default='outputs/diagnostics')
+    parser.add_argument('--database', default=str(DATABASE))
+    parser.add_argument('--image-dir', default=str(FILTERED))
+    parser.add_argument('--output-dir', default=str(DIAGNOSTICS))
     parser.add_argument('--model', default=None)
     parser.add_argument('--pair', nargs=2, action='append', metavar=('IMAGE1', 'IMAGE2'))
+    parser.add_argument('--sparse-dir', default=str(SPARSE))
+    parser.add_argument('--dry-run', action='store_true', help='Print resolved paths without opening data or writing reports')
     args = parser.parse_args()
+    for name in ('database','image_dir','output_dir','sparse_dir'):
+        setattr(args,name,str(resolve_path(getattr(args,name))))
+    if args.dry_run:
+        print(json.dumps(vars(args),indent=2));return
+    if not Path(args.database).is_file():raise ValueError(f'Database not found: {args.database}')
     output = Path(args.output_dir); output.mkdir(parents=True, exist_ok=True)
     image_dir = Path(args.image_dir)
     db = sqlite3.connect(Path(args.database).resolve().as_uri() + '?mode=ro', uri=True)
@@ -146,7 +160,7 @@ def main():
         filename=f'sift_{ident:04d}.png';cv2.imwrite(str(output/filename),canvas)
         figures.insert(0,(filename,f'SIFT: {images[ident]} — {len(keypoints):,} keypoints, up to 500 circles/orientations shown.'))
 
-    model = Path(args.model) if args.model else choose_model('outputs/sparse')
+    model = Path(args.model) if args.model else choose_model(args.sparse_dir)
     errors, tracks = point_metrics(model/'points3D.bin')
     with (model/'images.bin').open('rb') as stream:
         registered = struct.unpack('<Q',stream.read(8))[0]
@@ -226,6 +240,8 @@ def main():
 <h2>Inspect directly in the COLMAP GUI</h2><ol><li>Run <code>C:\\colmap\\COLMAP.bat gui</code>.</li><li>Under <code>File &gt; New project</code>, set the database to the existing <code>outputs/database.db</code> and the image folder to <code>data/filtered</code>. Do not rerun Extract/Match.</li><li>Open <code>Processing &gt; Manage database</code>, select an image, then use <code>Show image</code> and <code>Overlapping images</code> to inspect keypoints and matches. Do not edit data or click Save when only inspecting.</li></ol>
 <p>Sources: <a href="https://colmap.github.io/database.html">COLMAP database format</a> · <a href="https://colmap.github.io/tutorial.html#database-management">GUI/database tutorial</a> · <a href="https://colmap.github.io/faq.html">Parameter guidance</a>.</p>
 <p>Files: <a href="summary.json">summary.json</a> · <a href="pairs.csv">pairs.csv</a>. This report provides internal diagnostics; no ground-truth correspondences or metric 3D accuracy evaluation are available.</p></main></html>'''
+    document = document.replace('outputs/database.db', html.escape(args.database)).replace('data/filtered', html.escape(args.image_dir))
+    document = document.replace('Ballroom', html.escape(EXPERIMENT.name))
     # Embed the language controls so the report also works directly from disk.
     language_script = Path(__file__).with_name('report_language.js').read_text(encoding='utf-8')
     document = document.replace('</main>', '</main>\n<script id="report-language-script">\n' + language_script + '\n</script>', 1)

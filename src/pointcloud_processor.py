@@ -5,6 +5,11 @@ Coordinates retain COLMAP's arbitrary scale. This does NOT convert to metres.
 """
 
 import argparse
+if __package__:
+    from .project_config import DENSE, ALIGNED
+else:
+    from project_config import DENSE, ALIGNED
+
 import json
 import math
 from pathlib import Path
@@ -12,7 +17,10 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 
-from gravity_from_poses import gravity_from_poses, load_poses, rotation_from_up
+if __package__:
+    from .gravity_from_poses import gravity_from_poses, load_poses, rotation_from_up
+else:
+    from gravity_from_poses import gravity_from_poses, load_poses, rotation_from_up
 
 
 def finite_positive(value):
@@ -108,10 +116,10 @@ def build_alignment(planes, floor_index, up_rotation, align_walls, wall_angle):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source', type=Path, required=True, help='COLMAP fused.ply')
-    parser.add_argument('--out', type=Path, default=Path('outputs/meshes/room_aligned.ply'))
+    parser.add_argument('--source', type=Path, default=DENSE / 'fused.ply', help='COLMAP fused.ply')
+    parser.add_argument('--out', type=Path, default=ALIGNED)
     parser.add_argument('--report', type=Path, help='Default: <out stem>_alignment.json')
-    orientation = parser.add_mutually_exclusive_group(required=True)
+    orientation = parser.add_mutually_exclusive_group()
     orientation.add_argument('--sparse-model', type=Path,
                              help='Exact sparse model used to create this dense workspace')
     orientation.add_argument('--up', type=parse_up,
@@ -130,6 +138,8 @@ def main(argv=None):
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--dry-run', action='store_true', help='Compute and report without writing files')
     args = parser.parse_args(argv)
+    if args.up is None and args.sparse_model is None:
+        args.sparse_model = DENSE / 'sparse'
     if (args.max_sample < 100 or args.min_plane_points < 3
             or args.min_plane_points > args.max_sample or args.max_planes < 1
             or args.iterations < 1 or not 0 < args.floor_angle < 45

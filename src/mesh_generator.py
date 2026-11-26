@@ -1,7 +1,15 @@
 """Build a bounded-memory mesh from the completed COLMAP dense cloud."""
 
 import argparse
+# Shared paths work both as a direct script and as an imported module.
+if __package__:
+    from .project_config import DENSE, MESHES, METRIC
+else:
+    from project_config import DENSE, MESHES, METRIC
+
 import math
+import hashlib
+import json
 from pathlib import Path
 import shutil
 
@@ -11,7 +19,8 @@ import open3d as o3d
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source', default='outputs/dense/fused.ply')
+    parser.add_argument('--source', default=str(DENSE / 'fused.ply'))
+    parser.add_argument('--output-dir', default=str(MESHES))
     parser.add_argument('--max-points', type=int, default=250000,
                         help='Maximum points used for meshing; the full cloud is retained separately.')
     parser.add_argument('--depth', type=int, default=8)
@@ -23,7 +32,7 @@ def main():
     source = Path(args.source)
     if not source.is_file():
         raise SystemExit(f'Dense cloud not found: {source}. Complete Stereo Fusion first.')
-    output = Path('outputs/meshes')
+    output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     print(f'Source: {source}', flush=True)
     pcd = o3d.io.read_point_cloud(str(source))
@@ -74,6 +83,13 @@ def main():
         if not o3d.io.write_triangle_mesh(str(target), mesh):
             raise SystemExit(f'Could not write mesh: {target}')
         print(f'Saved: {target}', flush=True)
+    metadata = {
+        'source': str(source.resolve()),
+        'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+        'units': 'm' if source.resolve() == METRIC.resolve() else 'model',
+        'mesh_sha256': hashlib.sha256((output / 'mesh.ply').read_bytes()).hexdigest(),
+    }
+    (output / 'mesh_export.json').write_text(json.dumps(metadata, indent=2), encoding='utf-8')
     print(f'Vertices: {len(mesh.vertices):,}; triangles: {len(mesh.triangles):,}', flush=True)
 
 

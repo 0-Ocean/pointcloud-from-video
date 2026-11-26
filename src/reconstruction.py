@@ -1,6 +1,12 @@
 """COLMAP pipeline with explicit recovery stages and workspace protection."""
 
 import argparse
+# Shared paths work both as a direct script and as an imported module.
+if __package__:
+    from .project_config import DENSE, SPARSE, FILTERED, DATABASE
+else:
+    from project_config import DENSE, SPARSE, FILTERED, DATABASE
+
 import hashlib
 import json
 import re
@@ -99,15 +105,17 @@ def validate_workspace(workspace, require_maps=True):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--stage', choices=('full', 'dense', 'stereo', 'fusion'), default='full')
-    parser.add_argument('--dense-dir', default='outputs/experiments/Table_test01/dense')
-    parser.add_argument('--sparse-dir', default='outputs/experiments/Table_test01/sparse')
+    parser.add_argument('--dense-dir', default=str(DENSE))
+    parser.add_argument('--sparse-dir', default=str(SPARSE))
+    parser.add_argument('--image-dir', default=str(FILTERED))
+    parser.add_argument('--database', default=str(DATABASE))
     parser.add_argument('--sparse-model', help='Optional explicit model; otherwise choose the largest usable model.')
     parser.add_argument('--dry-run', action='store_true', help='Validate paths and print commands without running reconstruction.')
     args = parser.parse_args()
     workspace = Path(args.dense_dir)
     sparse_dir = Path(args.sparse_dir)
-    images = Path('outputs/experiments/Table_test01/filtered')
-    database = Path('outputs/experiments/Table_test01/database.db')
+    images = Path(args.image_dir)
+    database = Path(args.database)
 
     if args.stage not in ('stereo', 'fusion'):
         require_fresh_workspace(workspace)
@@ -157,7 +165,7 @@ def main():
     if fused.exists() and not args.dry_run:
         raise ValueError(f'{fused} already exists; retain it and choose a new output workspace instead of overwriting.')
     run(['colmap', 'stereo_fusion', '--workspace_path', workspace, '--workspace_format', 'COLMAP',
-         '--input_type', 'geometric', '--StereoFusion.use_cache', '1', '--StereoFusion.cache_size', '2',
+         '--input_type', 'geometric', '--StereoFusion.use_cache', '1', '--StereoFusion.cache_size', '4',
          '--StereoFusion.num_threads', '1', '--StereoFusion.max_image_size', '1280',
          '--output_path', fused], 'Stereo fusion', args.dry_run)
     if not args.dry_run:

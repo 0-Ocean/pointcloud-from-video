@@ -363,3 +363,47 @@ Change markers are `UPDATED` and `NEW`. Existing metric-scale JSON field names
 are retained for compatibility. Diagnostics HTML is generated in English; the
 optional Vietnamese translation resources and saved language preference remain
 available. Existing generated reports are not rewritten by source edits.
+
+
+## Shared per-experiment paths
+
+Edit `src/project_config.py` to set `EXPERIMENT` (for example `outputs/table_test02`) and `VIDEO_PATH`. The menu, extraction, filtering, COLMAP, aligned/metric clouds, meshing and viewer use these shared paths. Sampling settings remain in frame_extractor.py and quality thresholds in quality_filter.py. All generated data for an experiment remain inside its folder. Use a NEW experiment name for a different input or rerun; keep old workspaces intact.
+
+Check routing without processing: `python main.py --step 1 --dry-run` and `python main.py --step 2 --dry-run`. Run `python main.py` to select a stage. An experiment with existing frames should continue at filtering rather than extraction. COLMAP stages retain their existing workspace protection and require compatible maps to resume. Path changes alone do not move previous outputs. This update does not start any processing or push changes to GitHub.
+
+
+## Current unified configuration guide
+
+This section supersedes earlier fixed-path and independent Family-run examples. Edit only `EXPERIMENT` and `VIDEO_PATH` in `src/project_config.py` to select a dataset. Paths are resolved against the project root; absolute Windows video paths must use a raw string or forward slashes. Restart the menu after saving config. All default outputs, including diagnostics and preparation reports, now remain inside the selected experiment.
+
+Run `python main.py`: use the normal steps 1-8 for each experiment. Option 0 runs steps 1-7, with prompts for orientation and a real metric reference, then option 8 opens the viewer. The menu contains only options 0 through 8. Optional diagnostic scripts are not menu steps. The standalone run_video_test.py utility is retained for compatibility but is not needed for the standard workflow. Choose a new EXPERIMENT for each new video; preparation and reconstruction products are kept together in that experiment folder.
+
+Direct scripts use the same defaults: `python src/check.py`, `python src/inspect_matches.py`, `python src/run_video_test.py`, `python src/gravity_from_poses.py`, `python src/pointcloud_processor.py`, and `python "src/Metric scale.py" --scale VALUE`. Real orientation/scale inputs still require valid data and measurements. Explicit CLI path arguments override defaults. Debug routing without jobs using `python main.py --step 1 --dry-run`, `python src/check.py --dry-run`, `python src/inspect_matches.py --dry-run`, and `python src/run_video_test.py --dry-run`.
+
+Sampling constants remain in frame_extractor.py; thresholds remain in quality_filter.py. Configuration selects paths, does not move old results, and does not enable overwriting. No reconstruction is launched just by importing the configuration or help commands.
+
+
+### Standard workflow for another video
+
+1. Set `VIDEO_PATH` and a fresh `EXPERIMENT` in `src/project_config.py`.
+2. Save and restart `python main.py`.
+3. Run 1 extraction, 2 filtering, 3 COLMAP, 4 camera up inspection, 5 alignment, 6 metric scaling, 7 meshing and 8 visualization. Option 0 chains 1-7; it still requests orientation/measurement inputs where needed.
+
+All these steps use the shared experiment paths by default. No second preparation pipeline is required. Existing input/output files are not moved by selecting a new experiment. Results and algorithm success still depend on input quality, geometry and valid measurement references. Frame sampling and filtering settings remain adjustable in their modules.
+
+## Measure an object reference for metric scale
+
+Run `python src/measure_distance.py --reference 0.89` to pick the two endpoints of a physically measured 0.89-metre segment in the configured aligned cloud. Rotate/zoom, Shift+left-click each endpoint, Shift+right-click to undo, then Q to finish. The script prints model distance and metres-per-model-unit scale, and writes a timestamped JSON in the configured experiment measurements folder. Enter the scale in main step 6 method 3. Do not enter object height as room floor-to-ceiling. This utility does not modify the source cloud or add a menu item. Use `--source` for a different cloud or `--dry-run` to validate readback without a window. Verify scale with another known dimension; manual point selection is approximate.
+
+### Live distance readout
+
+`python src/measure_distance.py` measures any selected pair in model units on the configured aligned cloud. A floating readout and terminal update immediately when two points are selected, before Q. Shift+left-click picks; Shift+right-click undoes; Q in the cloud window finishes and saves the final pair. A third selection requires undoing back to exactly two points. The Finish button has the same effect as Q. No menu entry is added.
+
+`--reference 0.89` is an OPTIONAL assertion that the particular selected segment measures 0.89 metres in reality. It computes scale=reference/model_distance; it does not force arbitrary pairs to have that length or scale the cloud. Omit it for ordinary distance measurement. For an already calibrated cloud use `--source outputs/table_test01/meshes/room_aligned_metric.ply --units m` to display metres and centimetres. Declaring units does not calibrate an unscaled cloud. Live readout uses tkinter supplied with the installed Windows Python; if unavailable the terminal still updates. Source geometry remains unchanged.
+
+
+## Step 8 inline metric measurement
+
+Step 8 now draws a line and a metre label at its 3D midpoint after Shift+left-clicking two visible surface points. Shift+right-click undoes, R clears, a third pick starts a new pair, Q/Escape closes. No popup or Q confirmation is needed to read the distance. It is a straight 3D distance, not a path along the surface. Cloud picks select original cloud vertices using VTK point picking; mesh picks use a picked point on the displayed triangles. The VTK billboard label stays facing the camera at the 3D midpoint. Model actors alone are pickable; measurement markers cannot be mistaken for the source.
+
+The cloud viewer prefers project_config.METRIC from step 6 over an older pointcloud.ply. Measurement is enabled only for a cloud with the pipeline metre-units header, or a mesh with verified mesh_export.json (units and mesh SHA256) written by step 7. Existing meshes without metadata remain viewable; rerun step 7 with source 1 to measure a metric mesh. Option 3 views cloud then mesh sequentially. The viewer uses vtk>=9.3,<10 (included in requirements.txt). The viewer does not change geometry or apply scale.

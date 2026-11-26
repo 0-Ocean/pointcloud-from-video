@@ -10,14 +10,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parent
-# UPDATED: Match the current paths in preparation and COLMAP modules.
-EXPERIMENT = Path('outputs/experiments/Table_test01')
-FRAMES = EXPERIMENT / 'frames'
-FILTERED = EXPERIMENT / 'filtered'
-SPARSE = EXPERIMENT / 'sparse'
-DENSE = EXPERIMENT / 'dense'
-ALIGNED = Path('outputs/meshes/room_aligned.ply')
-METRIC = Path('outputs/meshes/room_aligned_metric.ply')
+from src.project_config import VIDEO_PATH, EXPERIMENT, FRAMES, FILTERED, SPARSE, DENSE, DATABASE, MESHES, ALIGNED, METRIC
 LABELS = {
     '1': 'Extract video frames',
     '2': 'Filter blurry and duplicate frames',
@@ -112,7 +105,8 @@ def run_step(step, state, dry_run=False, full=False):
             check_colmap()
         if not full:
             dense = ask_path('Dense workspace (use a new directory for full/dense)', str(dense))
-        arguments = ['--stage', stage, '--dense-dir', dense, '--sparse-dir', SPARSE]
+        arguments = ['--stage', stage, '--dense-dir', dense, '--sparse-dir', SPARSE,
+                     '--image-dir', FILTERED, '--database', DATABASE]
         if stage == 'dense':
             explicit = input('Specific sparse model (Enter to select the largest usable model): ').strip().strip('"')
             if explicit:
@@ -167,11 +161,11 @@ def run_step(step, state, dry_run=False, full=False):
                 raise ValueError('Invalid mesh source.')
             source = sources[choice]
         require_file(source, dry_run)
-        run_script('src/mesh_generator.py', ['--source', source], dry_run)
+        run_script('src/mesh_generator.py', ['--source', source, '--output-dir', MESHES], dry_run)
     elif step == '8':
-        if not dry_run and not any((ROOT / 'outputs/meshes' / name).is_file()
+        if not dry_run and not METRIC.is_file() and not any((ROOT / MESHES / name).is_file()
                                    for name in ('pointcloud.ply', 'mesh.ply')):
-            raise ValueError('No exported results to view. Run step 7 first.')
+            raise ValueError('No results to view. Run step 6 for metric cloud or step 7 for mesh.')
         run_script('src/visualizer.py', dry_run=dry_run)
 
 
@@ -186,7 +180,7 @@ def main(argv=None):
     while True:
         if args.step is None:
             print('\nPOINT CLOUD PIPELINE - STEP BY STEP')
-            print(f'Current workspace: {state["dense"]}')
+            print(f'Experiment: {EXPERIMENT}\nVideo: {VIDEO_PATH}\nCurrent workspace: {state["dense"]}')
             print('0. Run steps 1-7 (enter orientation/measurements when prompted)')
             for key, label in LABELS.items():
                 print(f'{key}. {label}')

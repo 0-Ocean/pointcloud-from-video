@@ -1,10 +1,18 @@
-# Local datasets and generated results; retain directory placeholders.
+# Local datasets and generated results; retain only standard placeholders.
 /data/**
-!/data/**/
-!/data/**/.gitkeep
+!/data/videos/
+!/data/frames/
+!/data/filtered/
+!/data/videos/.gitkeep
+!/data/frames/.gitkeep
+!/data/filtered/.gitkeep
 /outputs/**
-!/outputs/**/
-!/outputs/**/.gitkeep
+!/outputs/dense/
+!/outputs/meshes/
+!/outputs/sparse/
+!/outputs/dense/.gitkeep
+!/outputs/meshes/.gitkeep
+!/outputs/sparse/.gitkeep
 
 # Python environments and caches.
 /venv/

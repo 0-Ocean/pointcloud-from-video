@@ -11,20 +11,32 @@ import time
 import cv2
 from PIL import Image, ImageDraw, ImageOps
 
-import frame_extractor
-import quality_filter
+if __package__:
+    from .project_config import VIDEO_PATH, EXPERIMENT, resolve_path
+else:
+    from project_config import VIDEO_PATH, EXPERIMENT, resolve_path
+if __package__:
+    from . import frame_extractor, quality_filter
+else:
+    import frame_extractor
+    import quality_filter
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--video', default='data/videos/Family.mp4')
-    parser.add_argument('--max-frames', type=int, default=300)
-    parser.add_argument('--blur-threshold', type=float, default=20.0)
-    parser.add_argument('--ssim-threshold', type=float, default=0.92)
+    parser.add_argument('--video', default=VIDEO_PATH)
+    parser.add_argument('--max-frames', type=int, default=frame_extractor.MAX_FRAMES)
+    parser.add_argument('--blur-threshold', type=float, default=quality_filter.BLUR_THRESHOLD)
+    parser.add_argument('--ssim-threshold', type=float, default=quality_filter.SSIM_THRESHOLD)
+    parser.add_argument('--output-dir', default=str(EXPERIMENT))
+    parser.add_argument('--frame-step', type=int, default=frame_extractor.FRAME_STEP)
+    parser.add_argument('--auto-sample', action='store_true', help='Instead distribute up to max-frames samples over the video')
+    parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
+    if args.frame_step < 1:parser.error('--frame-step must be >= 1')
     if args.max_frames < 2 or args.blur_threshold < 0 or not -1 <= args.ssim_threshold <= 1:
         parser.error('Use max-frames >= 2, blur-threshold >= 0 and SSIM in [-1, 1].')
-    source = Path(args.video).resolve()
+    source = resolve_path(args.video)
     cap = cv2.VideoCapture(str(source))
     if not cap.isOpened():
         raise SystemExit(f'Cannot open video: {source}')
@@ -34,10 +46,14 @@ def main():
     cap.release()
     if count <= 0 or fps <= 0:
         raise SystemExit('Invalid frame count or FPS metadata.')
-    step = max(1, math.ceil(count / args.max_frames))
+    step = max(1, math.ceil(count / args.max_frames)) if args.auto_sample else args.frame_step
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    run = Path('outputs/experiments') / source.stem / stamp
-    run.mkdir(parents=True, exist_ok=False)
+    run = resolve_path(args.output_dir)
+    if args.dry_run:
+        print(json.dumps(dict(video=str(source),output=str(run),frame_step=step,max_frames=args.max_frames),indent=2));return
+    if run.exists() and any(p.name != '.gitkeep' for p in run.iterdir()):
+        raise SystemExit(f'Experiment already contains files: {run}. Use a NEW experiment folder.')
+    run.mkdir(parents=True, exist_ok=True)
     frames, filtered = run / 'frames', run / 'filtered'
     settings = dict(video=str(source), video_bytes=source.stat().st_size,
                     fps=fps, total_frames=count, width=width, height=height,
@@ -115,7 +131,7 @@ def main():
                 x=(j%4)*320;y=(j//4)*205
                 sheet.paste(thumb,(x,y));draw.text((x,y+177),paths[i].name,fill='black')
         sheet.save(run/f'contact_{label}.jpg',quality=92)
-    text = f'''Family video frame extraction and filtering experiment
+    text = f'''{source.name} video frame extraction and filtering experiment
 
 Source: {source}
 Video: {width} x {height}, {fps:.5f} fps, {count/fps:.3f} seconds

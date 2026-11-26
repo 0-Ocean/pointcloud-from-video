@@ -3,9 +3,13 @@ import os
 from tqdm import tqdm
 
 # ── CONFIG ──────────────────────────────────────────────
-VIDEO_PATH   = "data/videos/test_table.MOV"  # Add your video recording in place of video.mp4
-OUTPUT_DIR   = "outputs/experiments/Table_test01/frames"
-FRAME_STEP   = 60         # extract every 5th frame
+# Shared paths work both as a direct script and as an imported module.
+if __package__:
+    from .project_config import VIDEO_PATH, FRAMES
+else:
+    from project_config import VIDEO_PATH, FRAMES
+OUTPUT_DIR = str(FRAMES)
+FRAME_STEP   = 60         # Approximately one image/second at 60 fps
 MAX_FRAMES   = 200       # safety cap
 # ────────────────────────────────────────────────────────
 

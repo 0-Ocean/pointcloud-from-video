@@ -14,6 +14,11 @@ Examples:
   python "src/Metric scale.py" room_aligned.ply --scale 0.0137
 """
 import argparse
+if __package__:
+    from .project_config import ALIGNED, METRIC
+else:
+    from project_config import ALIGNED, METRIC
+
 import json
 import sys
 from pathlib import Path
@@ -217,7 +222,7 @@ def parse_wall_to_wall(text):
 def main():
     ap = argparse.ArgumentParser(
         description="Step 1.6: convert an aligned point cloud to metres")
-    ap.add_argument("ply", type=Path, help="room_aligned.ply from step 1.5")
+    ap.add_argument("ply", type=Path, nargs="?", default=ALIGNED, help="room_aligned.ply from step 1.5")
     ap.add_argument("--out", type=Path, help="Output .ply file (default: <name>_metric.ply)")
     ap.add_argument("--report", type=Path, help="JSON report (default: scale_report.json)")
 
@@ -335,7 +340,7 @@ def main():
         print("Dry-run: no files written.")
         return 0
 
-    out = args.out or args.ply.with_name(args.ply.stem + "_metric.ply")
+    out = args.out or (METRIC if args.ply == ALIGNED else args.ply.with_name(args.ply.stem + "_metric.ply"))
     rep = args.report or args.ply.with_name("scale_report.json")
     write_ply(out, scaled, rgb)
     rep.parent.mkdir(parents=True, exist_ok=True)

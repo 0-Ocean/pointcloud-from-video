@@ -122,10 +122,17 @@ def rotation_from_up(up):
     return np.vstack([x, y, up])
 
 
+if __package__:
+    from .project_config import DENSE
+else:
+    from project_config import DENSE
+
 def main():
-    if len(sys.argv) < 2:
-        raise SystemExit("Usage: python gravity_from_poses.py outputs/sparse/0")
-    poses = load_poses(sys.argv[1])
+    import argparse
+    parser = argparse.ArgumentParser(description="Inspect up direction from the configured dense cameras")
+    parser.add_argument("model", nargs="?", default=str(DENSE / "sparse"))
+    args = parser.parse_args()
+    poses = load_poses(args.model)
     up, rep = gravity_from_poses(poses)
     print("Registered images:    %d" % rep["n_images"])
     print("UP (cloud frame):     [%+.5f %+.5f %+.5f]" % tuple(up))
