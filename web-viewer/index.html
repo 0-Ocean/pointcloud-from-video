@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101820">
+  <meta name="description" content="Xem mô hình point cloud và đo khoảng cách 3D theo mét ngay trong trình duyệt.">
+  <title>Point Cloud Studio — Đo mô hình 3D</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+<header class="topbar"><a class="brand" href="./"><img src="./favicon.svg" width="32" height="32" alt=""><span>Point Cloud <b>Studio</b></span></a><span class="project-tag">VIDEO → 3D</span><button id="open-file" class="button small">Mở file PLY <span>↗</span></button><input id="file" type="file" accept=".ply" hidden></header>
+<main class="workspace">
+  <aside class="sidebar">
+    <div class="eyebrow">KHÔNG GIAN LÀM VIỆC</div><h1>Đo khoảng cách<br>trên mô hình 3D<span>.</span></h1><p class="intro">Chọn hai điểm. Xem kích thước thực, ngay trên mô hình.</p>
+    <section class="model-info"><div class="section-label">MÔ HÌNH ĐANG MỞ</div><div class="model-name"><span class="file-icon">3D</span><strong id="model-name">table_test01</strong></div><div class="model-stats"><span id="point-count">Đang tải dữ liệu…</span><span id="units" class="badge">Mét</span></div></section>
+    <div class="section-label tools-title">THAO TÁC</div><div class="mode-switch" role="group" aria-label="Chế độ thao tác"><button id="navigate" class="active" aria-pressed="true">↻ &nbsp;Xoay</button><button id="measure" aria-pressed="false">↔ &nbsp;Đo khoảng cách</button></div>
+    <ol class="instructions"><li><span>01</span><div>Chọn điểm đầu <b>A</b></div></li><li><span>02</span><div>Chọn điểm cuối <b>B</b></div></li><li><span>03</span><div>Đọc số mét trên đoạn nối</div></li></ol>
+    <div id="selection-status" role="status" aria-live="polite">Bật chế độ đo hoặc giữ Shift khi nhấp chọn điểm.</div>
+    <div class="actions"><button id="undo" class="button secondary" disabled>↶ Bỏ điểm</button><button id="clear" class="button secondary" disabled>Xóa phép đo</button></div>
+    <details class="display-settings"><summary>Thiết lập hiển thị</summary><label for="point-size">Kích thước điểm <output id="point-size-value">2 px</output></label><input id="point-size" type="range" min="1" max="5" step=".5" value="2"><label for="file-units">Đơn vị của file PLY</label><select id="file-units"><option value="m">Mét</option><option value="cm">Centimét</option><option value="mm">Milimét</option><option value="unknown">Chưa xác định</option></select><p>Chỉ chọn đơn vị đã xác minh. Đổi lựa chọn không thể tự hiệu chuẩn cloud COLMAP chưa có SCALE.</p></details>
+    <p class="footnote">Khoảng cách thẳng trong không gian 3D. Độ chính xác phụ thuộc mô hình và vị trí chọn điểm.</p>
+  </aside>
+  <section id="viewport" class="viewport" aria-label="Mô hình 3D tương tác" tabindex="0"><div class="viewport-top"><span class="live-dot"></span><span id="view-label">POINT CLOUD / TABLE_TEST01</span><span class="axis-chip">Z ↑</span></div><div id="canvas-mount"></div><div id="measure-label" class="distance-label" hidden></div><div id="point-a" class="point-label" hidden>A</div><div id="point-b" class="point-label" hidden>B</div><div id="loading" class="loading"><span class="spinner"></span><strong id="loading-title">Đang mở mô hình</strong><span id="loading-detail">Đang tải point cloud…</span></div><div id="empty-error" class="error" hidden role="alert"></div><button id="reset-camera" class="camera-button" title="Đưa toàn bộ mô hình vào khung nhìn" aria-label="Đưa toàn bộ mô hình vào khung nhìn">⌖</button><div class="viewport-bottom"><span>Trái: xoay · Phải: dịch chuyển · Cuộn: thu phóng</span><span>Shift + nhấp: đo · R: xóa</span></div></section>
+</main>
+<footer class="page-footer"><span>COLMAP &amp; Open3D → Trình xem web</span><span>Dữ liệu theo mét · Không cần cài phần mềm để xem</span></footer>
+</body>
+</html>

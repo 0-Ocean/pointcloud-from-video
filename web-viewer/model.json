@@ -1,0 +1,8 @@
+{
+  "name": "table_test01",
+  "url": "./assets/table_test01.ply",
+  "units": "m",
+  "points": 1324572,
+  "source_sha256": "62b2ee1622c9c005c95c6eb66f927bfa356d8b3aefd98649c7fc43123d39e64a",
+  "scale_factor": 0.3871359778
+}
